@@ -209,6 +209,7 @@ class Default(object):
                 error(self._vim, 'Empty sources')
                 return
 
+            self._vim.vars['denite_text_pos'] = 0
             self._init_denite()
             self._gather_candidates()
             self._update_candidates()
@@ -222,6 +223,7 @@ class Default(object):
 
         self._update_displayed_texts()
         self._update_buffer()
+        self._cursor = self._vim.eval('g:denite_text_pos')
         self._move_to_pos(self._cursor)
 
         if self._context['quick_move'] and do_map(self, 'quick_move', []):
