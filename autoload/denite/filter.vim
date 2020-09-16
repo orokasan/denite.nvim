@@ -130,7 +130,7 @@ function! s:new_filter_buffer(context) abort
     elseif a:context['filter_split_direction'] ==# 'floating'
       call nvim_open_win(bufnr('%'), v:true, {
             \ 'relative': 'editor',
-            \ 'row': row + winheight(0)+5,
+            \ 'row': row + winheight(0),
             \ 'col': win_screenpos(0)[1] - 1,
             \ 'width': winwidth(0) / 2,
             \ 'height': 1,
