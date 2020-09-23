@@ -106,17 +106,18 @@ function! s:new_filter_buffer(context) abort
     else
       let on_start_filter = v:false
     endif
-    let winrow = str2nr(a:context['winrow'])
-    let wincol = str2nr(a:context['wincol'])
+    let winrow = a:context['winrow']
+    let wincol = a:context['wincol']
     if a:context['split'] ==# 'floating'
       call nvim_open_win(bufnr('%'), v:true, {
             \ 'relative': 'editor',
             \ 'row': winrow == 1 ? 0 : row + winheight(0),
             \ 'col': wincol,
-            \ 'width': str2nr(a:context['winwidth']),
+            \ 'width': a:context['winwidth'],
             \ 'height': 1,
             \})
-    elseif a:context['split'] ==# 'floating_relative'
+    elseif a:context['split'] ==# 'floating_relative_cursor'
+          \ || a:context['split'] ==# 'floating_relative_window'
       " cursor position cannot be gotten from this function.
       " so instead estimating it from floating buffer position.
         call nvim_open_win(bufnr('%'), v:true, {

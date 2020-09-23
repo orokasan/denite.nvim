@@ -48,9 +48,9 @@ class Filter(Base):
 
         result = self._get_clap_result(
             context['candidates'], context['input'],
-            int(context['max_candidate_width']))
+            context['max_candidate_width'])
         d = {x['word']: x for x in context['candidates']}
-        return [d[x] for x in result[1]]
+        return [d[x] for x in result[1] if x in d]
 
     def convert_pattern(self, input_str: str) -> str:
         return convert2fuzzy_pattern(input_str)

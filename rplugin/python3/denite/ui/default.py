@@ -239,7 +239,7 @@ class Default(object):
         self._prev_bufnr = self._vim.current.buffer.number
         self._prev_curpos = self._vim.call('getcurpos')
         self._prev_wininfo = self._get_wininfo()
-        self._prev_winid = int(self._context['prev_winid'])
+        self._prev_winid = self._context['prev_winid']
         self._winrestcmd = self._vim.call('winrestcmd')
 
         self._ruler = self._vim.options['ruler']
@@ -342,7 +342,11 @@ class Default(object):
             self._winrestcmd = ''
             return
 
-        self._floating = split in ['floating', 'floating_relative']
+        self._floating = split in [
+            'floating',
+            'floating_relative_cursor',
+            'floating_relative_window',
+        ]
         self._filter_floating = False
 
         if self._vim.current.buffer.options['filetype'] != 'denite':
@@ -352,46 +356,7 @@ class Default(object):
         if split == 'tab':
             self._vim.command('tabnew')
         elif self._floating:
-            # Use floating window
-            if split == 'floating':
-                self._vim.call(
-                    'nvim_open_win',
-                    self._vim.call('bufnr', '%'), True, {
-                        'relative': 'editor',
-                        'row': int(self._context['winrow']),
-                        'col': int(self._context['wincol']),
-                        'width': int(self._context['winwidth']),
-                        'height': int(self._context['winheight']),
-                    })
-            elif split == 'floating_relative':
-                opened_pos = (self._vim.call('nvim_win_get_position', 0)[0] +
-                              self._vim.call('winline') - 1)
-                if self._context['auto_resize']:
-                    height = max(self._winheight, 1)
-                    width = max(self._winwidth, 1)
-                else:
-                    width = int(self._context['winwidth'])
-                    height = int(self._context['winheight'])
-
-                if opened_pos + height + 3 > self._vim.eval('&lines'):
-                    anchor = 'SW'
-                    row = 0
-                    self._context['filter_winrow'] = row + opened_pos
-                else:
-                    anchor = 'NW'
-                    row = 1
-                    self._context['filter_winrow'] = row + height + opened_pos
-                self._vim.call(
-                    'nvim_open_win',
-                    self._vim.call('bufnr', '%'), True, {
-                        'relative': 'cursor',
-                        'row': row,
-                        'col': 0,
-                        'width': width,
-                        'height': height,
-                        'anchor': anchor,
-                    })
-
+            self._split_floating(split)
         elif self._context['filter_split_direction'] == 'floating':
             self._filter_floating = True
         elif split != 'no':
@@ -403,7 +368,9 @@ class Default(object):
             vertical = 'vertical' if split == 'vertical' else ''
             command = (
               'buffer' if split
-              in ['no', 'tab', 'floating', 'floating_relative'] else 'sbuffer')
+              in ['no', 'tab', 'floating',
+                  'floating_relative_window',
+                  'floating_relative_cursor'] else 'sbuffer')
             self._vim.command(
                 'silent keepalt %s %s %s %s' % (
                     self._get_direction(),
@@ -506,8 +473,8 @@ class Default(object):
     def _update_displayed_texts(self) -> None:
         candidates_len = len(self._candidates)
         if not self._is_async and self._context['auto_resize']:
-            winminheight = int(self._context['winminheight'])
-            max_height = min(int(self._context['winheight']),
+            winminheight = self._context['winminheight']
+            max_height = min(self._context['winheight'],
                              self._get_max_height())
             if (winminheight != -1 and candidates_len < winminheight):
                 self._winheight = winminheight
@@ -683,22 +650,22 @@ class Default(object):
 
         if not is_vertical and self._vim.current.window.height != winheight:
             if self._floating:
-                wincol = int(self._context['winrow'])
+                wincol = self._context['winrow']
                 row = wincol
                 if split == 'floating':
                     if self._context['auto_resize'] and row > 1:
-                        row += int(self._context['winheight'])
+                        row += self._context['winheight']
                         row -= self._winheight
                     self._vim.call('nvim_win_set_config', self._winid, {
                         'relative': 'editor',
                         'row': row,
-                        'col': int(self._context['wincol']),
+                        'col': self._context['wincol'],
                         'width': winwidth,
                         'height': winheight,
                     })
                     filter_row = 0 if wincol == 1 else row + winheight
-                    filter_col = int(self._context['wincol'])
-                elif split == 'floating_relative':
+                    filter_col = self._context['wincol']
+                else:
                     init_pos = self._vim.call('nvim_win_get_config',
                                               self._winid)
                     self._vim.call('nvim_win_set_config', self._winid, {
@@ -746,7 +713,7 @@ class Default(object):
 
     def _check_move_option(self) -> None:
         if self._context['cursor_pos'].isnumeric():
-            self._cursor = int(self._context['cursor_pos']) + 1
+            self._cursor = self._context['cursor_pos'] + 1
         elif re.match(r'\+\d+', self._context['cursor_pos']):
             for _ in range(int(self._context['cursor_pos'][1:])):
                 self._move_to_next_line()
@@ -867,8 +834,8 @@ class Default(object):
             self._denite.start(self._context)
             self._denite.on_init(self._context)
         self._initialized = True
-        self._winheight = int(self._context['winheight'])
-        self._winwidth = int(self._context['winwidth'])
+        self._winheight = self._context['winheight']
+        self._winwidth = self._context['winwidth']
 
     def _gather_candidates(self) -> None:
         self._selected_candidates = []
@@ -920,3 +887,54 @@ class Default(object):
         # Note: After timer_stop is called, self._timers may be removed
         if key in self._timers:
             self._timers.pop(key)
+
+    def _split_floating(self, split: str) -> None:
+        # Use floating window
+        if split == 'floating':
+            self._vim.call(
+                'nvim_open_win',
+                self._vim.call('bufnr', '%'), True, {
+                    'relative': 'editor',
+                    'row': self._context['winrow'],
+                    'col': self._context['wincol'],
+                    'width': self._context['winwidth'],
+                    'height': self._context['winheight'],
+                })
+        elif split == 'floating_relative_cursor':
+            opened_pos = (self._vim.call('nvim_win_get_position', 0)[0] +
+                          self._vim.call('winline') - 1)
+            if self._context['auto_resize']:
+                height = max(self._winheight, 1)
+                width = max(self._winwidth, 1)
+            else:
+                width = self._context['winwidth']
+                height = self._context['winheight']
+
+            if opened_pos + height + 3 > self._vim.options['lines']:
+                anchor = 'SW'
+                row = 0
+                self._context['filter_winrow'] = row + opened_pos
+            else:
+                anchor = 'NW'
+                row = 1
+                self._context['filter_winrow'] = row + height + opened_pos
+            self._vim.call(
+                'nvim_open_win',
+                self._vim.call('bufnr', '%'), True, {
+                    'relative': 'cursor',
+                    'row': row,
+                    'col': 0,
+                    'width': width,
+                    'height': height,
+                    'anchor': anchor,
+                })
+        elif split == 'floating_relative_window':
+            self._vim.call(
+                'nvim_open_win',
+                self._vim.call('bufnr', '%'), True, {
+                    'relative': 'win',
+                    'row': self._context['winrow'],
+                    'col': self._context['wincol'],
+                    'width': self._context['winwidth'],
+                    'height': self._context['winheight'],
+                })

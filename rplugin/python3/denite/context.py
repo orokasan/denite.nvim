@@ -41,10 +41,22 @@ class Context(object):
                 'denite#project#path2project_directory',
                 context['path'], context['root_markers']
             )
-        context['filter_winrow'] = int(context['winrow'])
 
-        if (context['split'] in ['floating', 'floating_relative'] and
-                not self._vim.call('exists', '*nvim_open_win')):
+        context['filter_winrow'] = int(context['winrow'])
+        context['max_candidate_width'] = int(context['max_candidate_width'])
+        context['prev_winid'] = int(context['prev_winid'])
+        context['preview_height'] = int(context['preview_height'])
+        context['preview_width'] = int(context['preview_width'])
+        context['wincol'] = int(context['wincol'])
+        context['winheight'] = int(context['winheight'])
+        context['winminheight'] = int(context['winminheight'])
+        context['winrow'] = int(context['winrow'])
+        context['winwidth'] = int(context['winwidth'])
+
+        if (context['split'] in [
+                'floating', 'floating_relative_cursor',
+                'floating_absolute_window'] and not self._vim.call(
+                    'exists', '*nvim_open_win')):
             context['split'] = 'no'
         if (context['filter_split_direction'] == 'floating' and
                 not self._vim.call('exists', '*nvim_open_win')):
