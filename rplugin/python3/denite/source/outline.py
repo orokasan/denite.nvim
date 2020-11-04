@@ -39,17 +39,29 @@ class Source(Base):
         }
 
     def on_init(self, context: UserContext) -> None:
-        context['__path'] = (
-            context['args'][0]
-            if len(context['args']) > 0
-            else self.vim.current.buffer.name
-        )
-        if self.vars['force_filetype']:
-            filetype = self.vim.current.buffer.options['filetype']
-            context.pop('__language', None)
-            ctags_filetype = self.vars['language_map'].get(filetype, None)
-            if ctags_filetype:
-                context['__language'] = ctags_filetype
+        if len(context['args']) <= 0:
+            cur_buffer = self.vim.current.buffer
+            context['__path'] = cur_buffer.name
+            if not self.vim.funcs.filereadable(cur_buffer.name):
+                context['__nofile'] = True
+                context['__bufnr'] = int(cur_buffer.number)
+                self.default_action = 'switch'
+            if self.vars['force_filetype']:
+                context['__language'] = cur_buffer.options['filetype']
+                ctags_filetype = self.vars['language_map'].get(
+                    context['__language'], None)
+                if ctags_filetype:
+                    context['__language'] = ctags_filetype
+        elif self.vars['force_filetype']:
+            context['__path'] = context['args'][0]
+            bufnr = self.vim.funcs.bufnr(context['args'][0])
+            if bufnr > 0:
+                target_buffer = self.vim.buffers[bufnr]
+                context['__language'] = target_buffer.options['filetype']
+                ctags_filetype = self.vars['language_map'].get(
+                    context['__language'], None)
+                if ctags_filetype:
+                    context['__language'] = ctags_filetype
 
     def highlight(self) -> None:
         for syn in OUTLINE_HIGHLIGHT_SYNTAX:
@@ -79,7 +91,15 @@ class Source(Base):
         if self.vars['force_filetype'] and '__language' in context:
             args.append('--language-force={}'.format(context['__language']))
         args += ['--output-format=json', '-f', '-']
-        args += [context['__path']]
+        if context.get('__nofile', False):
+            tempfile = self.vim.funcs.tempname()
+            with open(tempfile, "w") as f:
+                f.writelines(
+                    map(lambda x: str(x + '\n'),
+                        self.vim.buffers[context['__bufnr']][:]))
+            args += [tempfile]
+        else:
+            args += [context['__path']]
         self.print_message(context, ' '.join(args))
 
         try:
@@ -95,8 +115,11 @@ class Source(Base):
             info = loads(entry)
 
             candidate = {
-                'word': info['name'],
-                'action__path': info['path'],
+                'word':
+                info['name'],
+                'action__path':
+                info['path']
+                if not context.get('__nofile') else context['__path'],
             }
             candidates.append(candidate)
 
@@ -131,7 +154,7 @@ class Source(Base):
             args += self.vars['options']
             args += [self.vars['file_opt'], tf.name]
             args += [context['__path']]
-            self.print_message(context, args)
+            self.print_message(context, ' '.join(args))
             # Close this file before giving to ctags
             # Otherwise this will error on Windows
             tf.close()

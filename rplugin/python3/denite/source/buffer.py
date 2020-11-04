@@ -32,13 +32,16 @@ class Source(Base):
         self.kind = 'buffer'
         self.vars = {
             'date_format': '%d %b %Y %H:%M:%S',
-            'exclude_unlisted': 1,
+            'exclude_unlisted': True,
+            'only_modified': False,
             'exclude_filetypes': ['denite']
         }
 
     def on_init(self, context: UserContext) -> None:
         context['__exclude_unlisted'] = ('!' not in context['args'] and
                                          self.vars['exclude_unlisted'])
+        context['__only_modified'] = ('+' in context['args'] or
+                                      self.vars['only_modified'])
         context['__caller_bufnr'] = context['bufnr']
         context['__alter_bufnr'] = self.vim.call('bufnr', '#')
 
@@ -74,11 +77,13 @@ class Source(Base):
             lambda x:
             maxsize if context['__caller_bufnr'] == x['bufnr']
             else -maxsize if context['__alter_bufnr'] == x['bufnr']
-            else x['timestamp']))
+            else int(x['timestamp'])))
 
     def _is_excluded(self, context: UserContext,
                      buffer_attr: typing.Dict[str, typing.Any]) -> bool:
         if context['__exclude_unlisted'] and buffer_attr['status'][0] == 'u':
+            return True
+        if context['__only_modified'] and buffer_attr['status'][3] != '+':
             return True
         if buffer_attr['filetype'] in self.vars['exclude_filetypes']:
             return True
