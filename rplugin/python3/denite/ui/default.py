@@ -512,6 +512,7 @@ class Default(object):
                 self._matched_char_id = -1
 
             if self._matched_pattern != '':
+                prefix = '\c' if self._context['ignorecase'] or self._context['smartcase'] else ''
                 self._matched_range_id = self._vim.call(
                     'matchadd', 'deniteMatchedRange',
                     r'\c' + regex_convert_py_vim(self._matched_pattern),
@@ -523,7 +524,7 @@ class Default(object):
                 ))
                 self._matched_char_id = self._vim.call(
                     'matchadd', 'deniteMatchedChar',
-                    matched_char_pattern,
+                    prefix + matched_char_pattern,
                     10, -1, {'window': self._winid})
 
         prev_linenr = self._vim.call('line', '.')
